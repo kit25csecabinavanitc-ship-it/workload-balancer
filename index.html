@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workload Balancer — Smart Employee Task Allocation</title>
+  <meta name="description" content="Smart employee task management system that distributes tasks fairly based on workload, skills, availability, priority, and deadlines." />
+  <meta property="og:title" content="Workload Balancer — Smart Employee Task Allocation" />
+  <meta property="og:description" content="Algorithmic employee task assignment and real-time workload balancing dashboard." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="/css/style.css">
+
+  <!-- Chart.js & Lucide CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Mobile Sidebar Backdrop -->
+  <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
+
+  <div class="app-container">
+    <!-- ======================================================================
+         SIDEBAR NAVIGATION
+         ====================================================================== -->
+    <aside id="appSidebar" class="app-sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon-box">
+          <i data-lucide="scale" style="width: 22px; height: 22px;"></i>
+        </div>
+        <div>
+          <div class="brand-title">Workload Balancer</div>
+          <div class="brand-tagline">Smart Task Allocation</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-title">Core Operations</div>
+        
+        <a class="nav-item active" data-nav="dashboard">
+          <i data-lucide="layout-dashboard" class="icon"></i>
+          <span>Dashboard</span>
+        </a>
+
+        <a class="nav-item" data-nav="employees">
+          <i data-lucide="users" class="icon"></i>
+          <span>Employees</span>
+        </a>
+
+        <a class="nav-item" data-nav="tasks">
+          <i data-lucide="check-square" class="icon"></i>
+          <span>Tasks</span>
+        </a>
+
+        <a class="nav-item" data-nav="assignment">
+          <i data-lucide="sparkles" class="icon"></i>
+          <span>Smart Assignment</span>
+        </a>
+
+        <div class="nav-section-title">Intelligence & Balancer</div>
+
+        <a class="nav-item" data-nav="workload">
+          <i data-lucide="bar-chart-2" class="icon"></i>
+          <span>Workload Analysis</span>
+        </a>
+
+        <a class="nav-item" data-nav="notifications">
+          <i data-lucide="bell" class="icon"></i>
+          <span>Notifications</span>
+          <span id="navNotificationBadge" class="nav-badge danger" style="display: none;">0</span>
+        </a>
+
+        <a class="nav-item" data-nav="approvals">
+          <i data-lucide="check-circle" class="icon"></i>
+          <span>Approvals & Audit</span>
+        </a>
+
+        <div class="nav-section-title">Insights & Config</div>
+
+        <a class="nav-item" data-nav="reports">
+          <i data-lucide="file-text" class="icon"></i>
+          <span>Reports</span>
+        </a>
+
+        <a class="nav-item" data-nav="settings">
+          <i data-lucide="settings" class="icon"></i>
+          <span>Settings</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="demo-banner">
+          <div style="display: flex; align-items: center; gap: 0.4rem;">
+            <i data-lucide="database" style="width: 14px; height: 14px;"></i>
+            <span>Demo Data Active</span>
+          </div>
+          <button class="btn btn-secondary btn-icon-only" style="padding: 0.2rem 0.4rem; font-size: 0.7rem;" title="Reset Demo Data" onclick="AppController.navigateTo('settings')">
+            Reset
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ======================================================================
+         MAIN APPLICATION AREA
+         ====================================================================== -->
+    <main class="app-main">
+      <!-- Top Header -->
+      <header class="app-header">
+        <div class="header-left">
+          <button id="mobileMenuBtn" class="mobile-menu-btn" aria-label="Toggle Menu">
+            <i data-lucide="menu" style="width: 22px; height: 22px;"></i>
+          </button>
+          <h1 id="pageBreadcrumb" class="page-breadcrumb">Dashboard Overview</h1>
+        </div>
+
+        <div class="header-right">
+          <button id="themeToggleBtn" class="btn btn-secondary btn-icon-only" title="Toggle Light/Dark Theme">
+            <i data-lucide="moon" class="icon"></i>
+          </button>
+
+          <button class="btn btn-secondary" onclick="AppController.openAddEmployeeModal()">
+            <i data-lucide="user-plus" style="width: 16px; height: 16px;"></i>
+            <span>Add Employee</span>
+          </button>
+
+          <button class="btn btn-primary" onclick="AppController.openAddTaskModal()">
+            <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
+            <span>Create Task</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- ====================================================================
+           1. DASHBOARD VIEW
+           ==================================================================== -->
+      <section id="view-dashboard" class="page-view active">
+        <!-- Overloaded Alert Banner -->
+        <div id="dashboardOverloadAlert" class="alert-item alert-Critical" style="display: none; margin-bottom: 1.5rem;"></div>
+
+        <!-- KPI Metrics Grid -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Total Employees</span>
+              <div class="stat-icon" style="background: rgba(37, 99, 235, 0.1); color: var(--primary);">
+                <i data-lucide="users" style="width: 18px; height: 18px;"></i>
+              </div>
+            </div>
+            <div id="kpiTotalEmployees" class="stat-value">0</div>
+            <div class="stat-meta">Active team members</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Total Tasks</span>
+              <div class="stat-icon" style="background: rgba(79, 70, 229, 0.1); color: var(--accent);">
+                <i data-lucide="check-square" style="width: 18px; height: 18px;"></i>
+              </div>
+            </div>
+            <div id="kpiTotalTasks" class="stat-value">0</div>
+            <div class="stat-meta"><span id="kpiInProgress">0</span> in progress</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Tasks Pending</span>
+              <div class="stat-icon" style="background: rgba(168, 85, 247, 0.1); color: var(--purple);">
+                <i data-lucide="clock" style="width: 18px; height: 18px;"></i>
+              </div>
+            </div>
+            <div id="kpiPending" class="stat-value">0</div>
+            <div class="stat-meta">Unassigned or queued</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Overdue Tasks</span>
+              <div class="stat-icon" style="background: rgba(239, 68, 68, 0.1); color: var(--danger);">
+                <i data-lucide="alert-triangle" style="width: 18px; height: 18px;"></i>
+              </div>
+            </div>
+            <div id="kpiOverdue" class="stat-value text-rose-600" style="color: #dc2626;">0</div>
+            <div class="stat-meta">Requires urgent action</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Full Capacity</span>
+              <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: var(--warning);">
+                <i data-lucide="shield-alert" style="width: 18px; height: 18px;"></i>
+              </div>
+            </div>
+            <div id="kpiFullCapacity" class="stat-value">0</div>
+            <div class="stat-meta">>= 80% workload utilized</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Workload Balance Score</span>
+              <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: var(--success);">
+                <i data-lucide="activity" style="width: 18px; height: 18px;"></i>
+              </div>
+            </div>
+            <div id="kpiBalanceScore" class="stat-value">--/100</div>
+            <div class="stat-meta">Algorithmic fairness metric</div>
+          </div>
+        </div>
+
+        <!-- Dashboard Charts Grid -->
+        <div class="grid-2">
+          <!-- Workload Bar Chart -->
+          <div class="dashboard-card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">
+                  <i data-lucide="bar-chart-3" style="width: 18px; height: 18px; color: var(--primary);"></i>
+                  Employee Workload vs Maximum Capacity
+                </h3>
+                <span class="card-subtitle">Assigned estimated hours compared to weekly capacity limit</span>
+              </div>
+              <button class="btn btn-secondary btn-sm" onclick="AppController.navigateTo('workload')">
+                View Analysis
+              </button>
+            </div>
+            <div class="chart-container">
+              <canvas id="dashboardWorkloadChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Task Status Doughnut -->
+          <div class="dashboard-card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">
+                  <i data-lucide="pie-chart" style="width: 18px; height: 18px; color: var(--accent);"></i>
+                  Task Distribution
+                </h3>
+                <span class="card-subtitle">Status breakdown of all active records</span>
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="dashboardTaskStatusChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upcoming Deadlines & Recent Activity -->
+        <div class="grid-equal-2">
+          <div class="dashboard-card">
+            <div class="card-header">
+              <h3 class="card-title">
+                <i data-lucide="calendar" style="width: 18px; height: 18px; color: var(--primary);"></i>
+                Upcoming Deadlines
+              </h3>
+              <button class="btn btn-secondary btn-sm" onclick="AppController.navigateTo('tasks')">
+                All Tasks
+              </button>
+            </div>
+            <div id="dashboardUpcomingDeadlines"></div>
+          </div>
+
+          <div class="dashboard-card">
+            <div class="card-header">
+              <h3 class="card-title">
+                <i data-lucide="history" style="width: 18px; height: 18px; color: var(--accent);"></i>
+                Recent Assignment Activity
+              </h3>
+              <button class="btn btn-secondary btn-sm" onclick="AppController.navigateTo('approvals')">
+                Audit Trail
+              </button>
+            </div>
+            <div id="dashboardRecentActivity"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           2. EMPLOYEES VIEW
+           ==================================================================== -->
+      <section id="view-employees" class="page-view">
+        <div class="view-header">
+          <div class="view-title-group">
+            <h2>Employee Management</h2>
+            <p>Manage team profiles, monitor individual workload thresholds, and maintain skill rosters.</p>
+          </div>
+          <div class="view-actions">
+            <button class="btn btn-primary" onclick="AppController.openAddEmployeeModal()">
+              <i data-lucide="user-plus" style="width: 16px; height: 16px;"></i>
+              <span>Add New Employee</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Search & Filter Bar -->
+        <div class="filter-bar">
+          <div class="search-input-box">
+            <i data-lucide="search" class="icon"></i>
+            <input id="empSearchInput" type="text" class="form-input" placeholder="Search by name, ID, or job role..." />
+          </div>
+
+          <select id="empDeptFilter" class="form-select filter-select">
+            <option value="All">All Departments</option>
+          </select>
+
+          <select id="empSkillFilter" class="form-select filter-select">
+            <option value="All">All Skills</option>
+          </select>
+
+          <select id="empAvailFilter" class="form-select filter-select">
+            <option value="All">All Availabilities</option>
+            <option value="Available">Available</option>
+            <option value="On Leave">On Leave</option>
+            <option value="Busy">Busy</option>
+          </select>
+
+          <select id="empSortSelect" class="form-select filter-select">
+            <option value="workload_desc">Sort: Highest Workload</option>
+            <option value="workload_asc">Sort: Lowest Workload</option>
+            <option value="name_asc">Sort: Name (A-Z)</option>
+            <option value="name_desc">Sort: Name (Z-A)</option>
+            <option value="tasks_desc">Sort: Active Tasks</option>
+          </select>
+        </div>
+
+        <!-- Employees Table -->
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Role & Department</th>
+                <th>Skills</th>
+                <th>Availability</th>
+                <th>Workload Utilization</th>
+                <th>Tasks</th>
+                <th style="text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="employeesTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           3. TASKS VIEW
+           ==================================================================== -->
+      <section id="view-tasks" class="page-view">
+        <div class="view-header">
+          <div class="view-title-group">
+            <h2>Task Management</h2>
+            <p>Create, inspect, reassign, and track project tasks across the organization.</p>
+          </div>
+          <div class="view-actions">
+            <button class="btn btn-primary" onclick="AppController.openAddTaskModal()">
+              <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
+              <span>Create Task</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Task Filter Bar -->
+        <div class="filter-bar">
+          <div class="search-input-box">
+            <i data-lucide="search" class="icon"></i>
+            <input id="taskSearchInput" type="text" class="form-input" placeholder="Search tasks by title, ID, or description..." />
+          </div>
+
+          <select id="taskPriorityFilter" class="form-select filter-select">
+            <option value="All">All Priorities</option>
+            <option value="Critical">Critical</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </select>
+
+          <select id="taskStatusFilter" class="form-select filter-select">
+            <option value="All">All Statuses</option>
+            <option value="Pending">Pending</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Completed">Completed</option>
+            <option value="Overdue">Overdue Only</option>
+          </select>
+
+          <select id="taskEmployeeFilter" class="form-select filter-select">
+            <option value="All">All Assignees</option>
+            <option value="Unassigned">Unassigned Only</option>
+          </select>
+
+          <select id="taskSortSelect" class="form-select filter-select">
+            <option value="deadline_asc">Sort: Deadline (Earliest)</option>
+            <option value="deadline_desc">Sort: Deadline (Latest)</option>
+            <option value="priority_desc">Sort: Priority (High to Low)</option>
+            <option value="effort_desc">Sort: Effort (Highest)</option>
+            <option value="effort_asc">Sort: Effort (Lowest)</option>
+          </select>
+        </div>
+
+        <!-- Tasks Table -->
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Task Title & ID</th>
+                <th>Priority</th>
+                <th>Effort</th>
+                <th>Required Skills</th>
+                <th>Deadline</th>
+                <th>Assigned To</th>
+                <th>Status</th>
+                <th style="text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tasksTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           4. SMART TASK ALLOCATION VIEW
+           ==================================================================== -->
+      <section id="view-assignment" class="page-view">
+        <div class="view-header">
+          <div class="view-title-group">
+            <h2>Smart Task Allocation Engine</h2>
+            <p>Algorithmic recommendation engine evaluating Skill Fit (40%), Available Capacity (30%), Deadlines (20%), and Active Tasks (10%).</p>
+          </div>
+        </div>
+
+        <!-- Task Selector Control Card -->
+        <div class="dashboard-card">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
+            <div style="flex: 1; min-width: 280px;">
+              <label class="form-label" style="font-size: 0.85rem; font-weight: 700; margin-bottom: 0.35rem;">Select Task to Analyze & Allocate:</label>
+              <select id="saTaskSelect" class="form-select" style="font-size: 0.95rem; font-weight: 600; padding: 0.65rem 0.85rem;"></select>
+            </div>
+            <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+              <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.84rem; cursor: pointer; color: var(--text-main);">
+                <input id="saRequireAllSkillsToggle" type="checkbox" style="width: 16px; height: 16px;" />
+                <span>Require 100% Mandatory Skills</span>
+              </label>
+              <button id="saRecommendBtn" class="btn btn-primary" style="padding: 0.65rem 1.25rem;">
+                <i data-lucide="sparkles" style="width: 18px; height: 18px;"></i>
+                <span>Evaluate Candidates</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Active Task Details Card -->
+          <div id="saTaskDetails" style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 1.25rem;"></div>
+        </div>
+
+        <!-- Recommendations Area -->
+        <div id="saRecommendationsArea" style="margin-top: 1.5rem;"></div>
+      </section>
+
+      <!-- ====================================================================
+           5. WORKLOAD & IMBALANCE VIEW
+           ==================================================================== -->
+      <section id="view-workload" class="page-view">
+        <div class="view-header">
+          <div class="view-title-group">
+            <h2>Workload & Imbalance Detection</h2>
+            <p>Organizational utilization analytics, variance indicators, and intelligent task redistribution suggestions.</p>
+          </div>
+        </div>
+
+        <!-- Score Hero Card -->
+        <div class="dashboard-card" style="background: linear-gradient(135deg, rgba(37, 99, 235, 0.05), rgba(79, 70, 229, 0.08)); border-color: rgba(37, 99, 235, 0.2);">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.5rem;">
+            <div>
+              <span class="badge badge-balanced" style="font-size: 0.75rem;">Algorithmic Fairness Indicator</span>
+              <div style="display: flex; align-items: baseline; gap: 0.75rem; margin-top: 0.5rem;">
+                <span id="imbalanceScoreValue" style="font-size: 2.75rem; font-weight: 800; color: var(--primary); letter-spacing: -0.03em;">-- / 100</span>
+                <span style="font-size: 1rem; color: var(--text-muted); font-weight: 600;">Workload Balance Index</span>
+              </div>
+              <p style="font-size: 0.84rem; color: var(--text-muted); max-width: 620px; margin-top: 0.25rem;">
+                Calculated from team utilization standard deviation (σ) and max-min spread. Higher scores indicate fair, uniform distribution across available personnel without severe burnout bottlenecks.
+              </p>
+            </div>
+
+            <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
+              <div style="background: var(--bg-surface); padding: 1rem 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border-light); text-align: center; min-width: 110px;">
+                <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Avg Utilization</div>
+                <div id="imbalanceAvgUtil" style="font-size: 1.45rem; font-weight: 800; color: var(--text-main);">0%</div>
+              </div>
+              <div style="background: var(--bg-surface); padding: 1rem 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border-light); text-align: center; min-width: 110px;">
+                <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Max-Min Spread</div>
+                <div id="imbalanceSpread" style="font-size: 1.45rem; font-weight: 800; color: #f59e0b;">0%</div>
+              </div>
+              <div style="background: var(--bg-surface); padding: 1rem 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border-light); text-align: center; min-width: 110px;">
+                <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Std Dev (σ)</div>
+                <div id="imbalanceStdDev" style="font-size: 1.45rem; font-weight: 800; color: var(--text-main);">±0%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Redistribution Suggestions Area -->
+        <div id="redistributionSuggestionsArea" style="margin-bottom: 2rem;"></div>
+
+        <!-- All Employees Workload Grid -->
+        <div class="card-header" style="margin-bottom: 1rem;">
+          <h3 class="card-title">
+            <i data-lucide="users" style="width: 18px; height: 18px; color: var(--primary);"></i>
+            Current Team Workload Utilization
+          </h3>
+        </div>
+        <div id="workloadEmployeesGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 1rem;"></div>
+      </section>
+
+      <!-- ====================================================================
+           6. NOTIFICATIONS CENTER VIEW
+           ==================================================================== -->
+      <section id="view-notifications" class="page-view">
+        <div class="view-header">
+          <div class="view-title-group">
+            <h2>Deadline & Notification Center</h2>
+            <p>Real-time surveillance for overdue tasks, imminent deadlines, capacity overages, and skill mismatches.</p>
+          </div>
+          <div class="view-actions">
+            <div style="display: flex; gap: 0.35rem; background: var(--bg-surface); border: 1px solid var(--border-light); padding: 0.25rem; border-radius: var(--radius-md);">
+              <button class="btn btn-sm notif-filter-btn active btn-primary" data-filter="All" onclick="AppController.setNotificationFilter('All')">All Alerts</button>
+              <button class="btn btn-sm notif-filter-btn" data-filter="Critical" onclick="AppController.setNotificationFilter('Critical')">Critical</button>
+              <button class="btn btn-sm notif-filter-btn" data-filter="Deadline" onclick="AppController.setNotificationFilter('Deadline')">Deadlines</button>
+              <button class="btn btn-sm notif-filter-btn" data-filter="Workload" onclick="AppController.setNotificationFilter('Workload')">Workload</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="notificationsList"></div>
+      </section>
+
+      <!-- ====================================================================
+           7. APPROVALS & AUDIT LOG VIEW
+           ==================================================================== -->
+      <section id="view-approvals" class="page-view">
+        <div class="view-header">
+          <div class="view-title-group">
+            <h2>Manager Approval & Allocation History</h2>
+            <p>Permanent audit trail recording every task assignment, reassignment reason, timestamp, and manager decision.</p>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date & Time</th>
+                <th>Task Details</th>
+                <th>Action</th>
+                <th>Previous Assignee</th>
+                <th>New Assignee</th>
+                <th>Decision Rationale</th>
+                <th>Authorized By</th>
+              </tr>
+            </thead>
+            <tbody id="auditLogTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           8. REPORTS & ANALYTICS VIEW
+           ==================================================================== -->
+      <section id="view-reports" class="page-view">
+        <div class="view-header">
+          <div class="view-title-group">
+            <h2>Reports & Analytics</h2>
+            <p>Generate analytical summaries and export CSV spreadsheets for executive reporting.</p>
+          </div>
+          <div class="view-actions">
+            <button id="btnExportEmployeeCSV" class="btn btn-secondary">
+              <i data-lucide="download" style="width: 16px; height: 16px;"></i>
+              <span>Export Workload (CSV)</span>
+            </button>
+            <button id="btnExportTaskCSV" class="btn btn-secondary">
+              <i data-lucide="download" style="width: 16px; height: 16px;"></i>
+              <span>Export Tasks (CSV)</span>
+            </button>
+            <button id="btnExportOverdueCSV" class="btn btn-secondary">
+              <i data-lucide="download" style="width: 16px; height: 16px;"></i>
+              <span>Export Overdue (CSV)</span>
+            </button>
+            <button id="btnExportHistoryCSV" class="btn btn-secondary">
+              <i data-lucide="download" style="width: 16px; height: 16px;"></i>
+              <span>Export Audit Trail (CSV)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Executive Summary Cards -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-label">Total Task Effort</span>
+            <div id="repTotalHours" class="stat-value">0h</div>
+            <div class="stat-meta">Cumulative estimated backlog</div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Team Average Utilization</span>
+            <div id="repAvgUtil" class="stat-value">0%</div>
+            <div class="stat-meta">Healthy benchmark is 65-75%</div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Overloaded Staff</span>
+            <div id="repOverloadedCount" class="stat-value text-rose-600" style="color: #dc2626;">0</div>
+            <div class="stat-meta">Exceeding 100% capacity</div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Overdue Tasks</span>
+            <div id="repOverdueCount" class="stat-value text-rose-600" style="color: #dc2626;">0</div>
+            <div class="stat-meta">Missed project milestones</div>
+          </div>
+        </div>
+
+        <!-- Department Comparison Chart -->
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">
+                <i data-lucide="layers" style="width: 18px; height: 18px; color: var(--primary);"></i>
+                Departmental Workload Utilization
+              </h3>
+              <span class="card-subtitle">Aggregate assigned hours divided by department capacity</span>
+            </div>
+          </div>
+          <div class="chart-container" style="height: 320px;">
+            <canvas id="reportsDepartmentChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           9. SETTINGS VIEW
+           ==================================================================== -->
+      <section id="view-settings" class="page-view">
+        <div class="view-header">
+          <div class="view-title-group">
+            <h2>System Settings</h2>
+            <p>Customize organization parameters, default capacities, scoring weights, and data backups.</p>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+          <div>
+            <form id="settingsForm" class="dashboard-card" style="display: flex; flex-direction: column; gap: 1.25rem;">
+              <h3 class="card-title">General Organization Preferences</h3>
+              
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label class="form-label">Organization / Company Name</label>
+                  <input id="settingsOrgName" type="text" class="form-input" required />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Default Employee Weekly Capacity (Hours)</label>
+                  <input id="settingsDefaultCapacity" type="number" min="10" max="60" class="form-input" required />
+                </div>
+              </div>
+
+              <div style="border-top: 1px solid var(--border-light); padding-top: 1.25rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                  <div>
+                    <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--text-main);">Smart Allocation Scoring Weights</h4>
+                    <span class="form-help">Configure the relative priority for recommendation calculations (must sum to exactly 100%).</span>
+                  </div>
+                  <span id="weightsTotalIndicator" class="badge badge-low">Total: 100% (Valid)</span>
+                </div>
+
+                <div class="form-grid-2" style="margin-top: 0.75rem;">
+                  <div class="form-group">
+                    <label class="form-label">Skill Match Weight (%)</label>
+                    <input id="weightSkill" type="number" min="0" max="100" class="form-input" required />
+                    <span class="form-help">Default: 40%</span>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Remaining Capacity Weight (%)</label>
+                    <input id="weightCapacity" type="number" min="0" max="100" class="form-input" required />
+                    <span class="form-help">Default: 30%</span>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Deadline Suitability Weight (%)</label>
+                    <input id="weightDeadline" type="number" min="0" max="100" class="form-input" required />
+                    <span class="form-help">Default: 20%</span>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Active Task Count Weight (%)</label>
+                    <input id="weightTasks" type="number" min="0" max="100" class="form-input" required />
+                    <span class="form-help">Default: 10%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display: flex; justify-content: flex-end; padding-top: 0.75rem;">
+                <button type="submit" class="btn btn-primary">
+                  <i data-lucide="save" style="width: 16px; height: 16px;"></i>
+                  <span>Save Configuration</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Data Backup & Reset Panel -->
+          <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <div class="dashboard-card">
+              <h3 class="card-title" style="margin-bottom: 0.5rem;">Data Export & Import</h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
+                Persist or transfer full application records via formatted JSON file.
+              </p>
+              
+              <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <button id="exportJsonBtn" class="btn btn-secondary">
+                  <i data-lucide="download" style="width: 16px; height: 16px;"></i>
+                  <span>Export All Data (JSON)</span>
+                </button>
+
+                <label class="btn btn-secondary" style="cursor: pointer;">
+                  <i data-lucide="upload" style="width: 16px; height: 16px;"></i>
+                  <span>Import Data from JSON</span>
+                  <input id="importJsonFileInput" type="file" accept=".json" style="display: none;" />
+                </label>
+              </div>
+            </div>
+
+            <div class="dashboard-card" style="border-color: #fecaca;">
+              <h3 class="card-title" style="color: #b91c1c; margin-bottom: 0.5rem;">Demo Data Reset</h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
+                Restore original dataset (12 employees, 19 tasks, overloaded Marcus Vance, spare capacity members).
+              </p>
+              <button id="resetDemoBtn" class="btn btn-danger">
+                <i data-lucide="refresh-cw" style="width: 16px; height: 16px;"></i>
+                <span>Reset Demo Records</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 1: ADD / EDIT EMPLOYEE
+       ======================================================================== -->
+  <div id="employeeModalBackdrop" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="employeeModalTitle" class="modal-title">Add New Employee</h3>
+        <button class="btn btn-secondary btn-icon-only" data-modal-close>
+          <i data-lucide="x" style="width: 18px; height: 18px;"></i>
+        </button>
+      </div>
+      <form id="employeeModalForm">
+        <input type="hidden" id="empFormIsEdit" value="false" />
+        <input type="hidden" id="empFormOriginalId" value="" />
+        
+        <div class="modal-body">
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label">Employee ID *</label>
+              <input id="empFormId" type="text" class="form-input" placeholder="e.g. EMP-115" required />
+              <span class="form-help">Unique identifier (cannot be duplicated).</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Full Name *</label>
+              <input id="empFormName" type="text" class="form-input" placeholder="e.g. Jane Doe" required />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label">Corporate Email *</label>
+              <input id="empFormEmail" type="email" class="form-input" placeholder="jane.doe@company.com" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Department *</label>
+              <select id="empFormDepartment" class="form-select" required>
+                <option value="Engineering">Engineering</option>
+                <option value="Design">Design</option>
+                <option value="Quality Assurance">Quality Assurance</option>
+                <option value="Product Management">Product Management</option>
+                <option value="Marketing">Marketing</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label">Job Role Title *</label>
+              <input id="empFormRole" type="text" class="form-input" placeholder="e.g. Lead Frontend Architect" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Max Weekly Capacity (Hours) *</label>
+              <input id="empFormCapacity" type="number" min="5" max="80" class="form-input" value="40" required />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Skills (Comma-separated) *</label>
+            <input id="empFormSkills" type="text" class="form-input" placeholder="e.g. React, TypeScript, Node.js, PostgreSQL" required />
+            <span class="form-help">Enter technical capabilities and domain competencies.</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Availability Status</label>
+            <select id="empFormAvailability" class="form-select">
+              <option value="Available">Available</option>
+              <option value="On Leave">On Leave</option>
+              <option value="Busy">Busy</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-modal-close>Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Employee</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 2: CREATE / EDIT TASK
+       ======================================================================== -->
+  <div id="taskModalBackdrop" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="taskModalTitle" class="modal-title">Create New Task</h3>
+        <button class="btn btn-secondary btn-icon-only" data-modal-close>
+          <i data-lucide="x" style="width: 18px; height: 18px;"></i>
+        </button>
+      </div>
+      <form id="taskModalForm">
+        <input type="hidden" id="taskFormIsEdit" value="false" />
+        <input type="hidden" id="taskFormOriginalId" value="" />
+
+        <div class="modal-body">
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label">Task ID *</label>
+              <input id="taskFormId" type="text" class="form-input" placeholder="e.g. TSK-220" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Priority Level *</label>
+              <select id="taskFormPriority" class="form-select" required>
+                <option value="Low">Low</option>
+                <option value="Medium" selected>Medium</option>
+                <option value="High">High</option>
+                <option value="Critical">Critical</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Task Title *</label>
+            <input id="taskFormTitle" type="text" class="form-input" placeholder="e.g. Optimize Redis Cache Connection Pool" required />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Detailed Description</label>
+            <textarea id="taskFormDescription" class="form-textarea" rows="3" placeholder="Explain the objective, acceptance criteria, or context..."></textarea>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label">Estimated Effort (Hours) *</label>
+              <input id="taskFormEffort" type="number" min="1" max="80" class="form-input" value="12" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Target Deadline *</label>
+              <input id="taskFormDeadline" type="date" class="form-input" required />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Required Skills (Comma-separated)</label>
+            <input id="taskFormSkills" type="text" class="form-input" placeholder="e.g. React, TypeScript, Node.js" />
+            <span class="form-help">Smart assignment will use these skills to evaluate candidates.</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Assignee (Optional)</label>
+            <select id="taskFormAssignedTo" class="form-select"></select>
+            <span class="form-help">Leave unassigned to use the Smart Allocation Engine recommendations.</span>
+          </div>
+
+          <!-- Capacity Warning Alert Box -->
+          <div id="taskFormCapacityWarning" class="alert-item alert-Critical" style="display: none; padding: 0.75rem 1rem; font-size: 0.82rem;"></div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-modal-close>Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Task</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 3: EMPLOYEE PROFILE DRAWER
+       ======================================================================== -->
+  <div id="empProfileModalBackdrop" class="modal-backdrop">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3 id="empProfileModalTitle" class="modal-title">Employee Profile</h3>
+        <button class="btn btn-secondary btn-icon-only" data-modal-close>
+          <i data-lucide="x" style="width: 18px; height: 18px;"></i>
+        </button>
+      </div>
+      <div id="empProfileModalContent" class="modal-body"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-modal-close>Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 4: MANAGER APPROVAL & CONFIRMATION
+       ======================================================================== -->
+  <div id="approvalModalBackdrop" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="approvalModalTitle" class="modal-title">Manager Approval</h3>
+        <button class="btn btn-secondary btn-icon-only" data-modal-close>
+          <i data-lucide="x" style="width: 18px; height: 18px;"></i>
+        </button>
+      </div>
+      <input type="hidden" id="approvalModalTaskId" value="" />
+      <input type="hidden" id="approvalModalEmpId" value="" />
+      <div id="approvalModalBody" class="modal-body"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-modal-close>Reject / Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="AppController.handleConfirmApproval()">
+          <i data-lucide="check" style="width: 16px; height: 16px;"></i>
+          <span>Approve & Finalize Assignment</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Logic Scripts (Strict Vanilla JS in dependency order) -->
+  <script src="/js/data.js"></script>
+  <script src="/js/storage.js"></script>
+  <script src="/js/assignment.js"></script>
+  <script src="/js/analytics.js"></script>
+  <script src="/js/notifications.js"></script>
+  <script src="/js/employees.js"></script>
+  <script src="/js/tasks.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

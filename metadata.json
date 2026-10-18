@@ -1,0 +1,6 @@
+{
+  "name": "Workload Balancer — Smart Employee Task Allocation",
+  "description": "Smart employee task management system that distributes tasks fairly based on workload, skills, availability, priority, and deadlines with algorithmic recommendations and imbalance detection.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
